@@ -1,252 +1,23 @@
-import logging
+"""Module to create the Dash app for the Expense Tracker."""
+
 from datetime import datetime
 
 import dash
 import pandas as pd
-import requests
 from dash import Input, Output, State, dash_table, dcc, html
 
-from tracker import CSV_PATH, ExpenseTracker
-
-API_KEY = "..."
-BASE_URL = f"https://v6.exchangerate-api.com/v6/{API_KEY}/latest/"
-
-
-# Function to get the exchange rate from ExchangeRate-API
-def get_exchange_rate(from_currency, to_currency="EUR"):
-    try:
-        url = f"{BASE_URL}{from_currency}"
-        response = requests.get(url)
-        data = response.json()
-
-        if response.status_code != 200 or "conversion_rates" not in data:
-            logging.error(
-                f"Failed to fetch exchange rate: {data.get('error-type', 'Unknown error')}"
-            )
-            return None
-
-        rate = data["conversion_rates"].get(to_currency)
-        if rate is None:
-            logging.error(f"Conversion rate for {to_currency} not found in response.")
-            return None
-        return rate
-    except Exception as e:
-        logging.error(f"Error fetching exchange rate: {str(e)}")
-        return None
-
-
-# Function to convert costs to Euro with error handling
-def convert_to_euro(df):
-    def safe_convert(row):
-        try:
-            if row["currency"] == "EUR":
-                return row["cost"]
-            else:
-                rate = get_exchange_rate(row["currency"], "EUR")
-                if rate is not None:
-                    return row["cost"] * rate
-                else:
-                    return None
-        except Exception as e:
-            logging.error(f"Failed to convert {row['currency']} to EUR: {str(e)}")
-            return None
-
-    df["cost_euro"] = df.apply(safe_convert, axis=1)
-    # Handle any rows where conversion failed by dropping or filling with 0
-    df = df.dropna(subset=["cost_euro"])
-    return df
-
-
-# Ensure the CSV file exists
-def ensure_csv_exists():
-    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not CSV_PATH.exists():
-        pd.DataFrame(
-            columns=["category", "cost", "note", "date", "currency", "account"]
-        ).to_csv(CSV_PATH, index=False)
-
-
-ensure_csv_exists()
-
-# Initialize the ExpenseTracker
-expense_tracker = ExpenseTracker()
-
-# Initialize Dash app
-app = dash.Dash(
-    __name__,
-    external_stylesheets=[
-        "https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap"
-    ],
+from .config import color_palette, dark_mode_colors, light_mode_colors
+from .data.tracker import ExpenseTracker
+from .utils import (
+    convert_income_to_euro,
+    convert_to_euro,
+    ensure_csv_exists,
+    load_expenses,
 )
 
-
-# Load existing data
-def load_expenses():
-    df = pd.DataFrame([expense.dict() for expense in expense_tracker.get_expenses()])
-    if df.empty:
-        df = pd.DataFrame(
-            columns=["category", "cost", "note", "date", "currency", "account"]
-        )
-    return df
-
-
-# # Define the color palette
-# colors = {
-#     "background": "#3F334D",  # Background color
-#     "text": "#FFFFFF",  # White text
-#     "block": "#7D8491",  # Block background
-#     "input_block": "#7D8491",  # Input commands block
-#     "button": "#574B60",  # Button and table header
-#     "table_bg": "#C0C5C1",  # Table background
-# }
-
-# # Create a palette excluding the block background color
-# color_palette = [
-#     colors["text"],  # White text
-#     colors["button"],  # Button color
-#     colors["table_bg"],  # Table background
-# ]
-
-# # Add additional colors to match the style
-# additional_colors = [
-#     "#FF6F61",  # Coral
-#     "#6B5B95",  # Purple
-#     "#88B04B",  # Green
-#     "#F7CAC9",  # Pink
-#     "#92A8D1",  # Blue
-# ]
-
-# # Combine the existing and additional colors
-# color_palette.extend(additional_colors)
-
-# Define the color palette
-# colors = {
-#     "background": "#202123",  # Dark background
-#     "text": "#D1D5DB",  # Light gray text
-#     "block": "#3E4149",  # Block background
-#     "input_block": "#2D2F34",  # Input commands block
-#     "button": "#6366F1",  # Button and table header
-#     "table_bg": "#3E4149",  # Table background
-#     "white": "#FFFFFF",  # White
-# }
-
-dark_mode_colors = {
-    "background": "#202123",  # Dark background
-    "text": "#D1D5DB",  # Light gray text
-    "block": "#3E4149",  # Block background
-    "input_block": "#2D2F34",  # Input commands block
-    "button": "#6366F1",  # Button and table header
-    "table_bg": "#3E4149",  # Table background
-    "subtitle": "#FFFFFF",  # White
-}
-
-light_mode_colors = {
-    "background": "#FFFFFF",  # Light background
-    "text": "#202123",  # Dark text
-    "block": "#F0F0F0",  # Light block background
-    "input_block": "#E0E0E0",  # Input commands block
-    "button": "#6366F1",  # Button and table header
-    "table_bg": "#FFFFFF",  # Table background,
-    "subtitle": "#000000",  # Black
-}
-
-
-# Add additional colors for plotting
-color_palette = [
-    "#10B981",  # Emerald green
-    "#EF4444",  # Red
-    "#3B82F6",  # Blue
-    "#F59E0B",  # Amber
-    "#8B5CF6",  # Violet
-    "#EC4899",  # Pink
-    "#F97316",  # Orange
-    "#22D3EE",  # Cyan
-    "#4B5563",  # Cool gray
-    "#14B8A6",  # Teal
-    "#A855F7",  # Purple
-    "#EAB308",  # Yellow
-]
-# Define the color palettes
-dark_mode_colors = {
-    "title": "#FFD700",
-    "background": "#202123",  # Dark background
-    "text": "#D1D5DB",  # Light gray text
-    "block": "#3E4149",  # Block background
-    "input_block": "#2D2F34",  # Input commands block
-    "button": "#6366F1",  # Button and table header
-    "table_bg": "#3E4149",  # Table background
-    "subtitle": "#FFFFFF",  # White
-}
-
-light_mode_colors = {
-    "title": "#FFD700",
-    "background": "#FFFFFF",  # Light background
-    "text": "#202123",  # Dark text
-    "block": "#F0F0F0",  # Light block background
-    "input_block": "#E0E0E0",  # Input commands block
-    "button": "#6366F1",  # Button and table header
-    "table_bg": "#FFFFFF",  # Table background
-    "subtitle": "#000000",  # Black
-}
-
-# Use light mode by default
 colors = dark_mode_colors
 
-
-# Function to get the exchange rate from ExchangeRate-API
-def get_exchange_rate(from_currency, to_currency="EUR"):
-    try:
-        url = f"{BASE_URL}{from_currency}"
-        response = requests.get(url)
-        data = response.json()
-
-        if response.status_code != 200 or "conversion_rates" not in data:
-            logging.error(
-                f"Failed to fetch exchange rate: {data.get('error-type', 'Unknown error')}"
-            )
-            return None
-
-        rate = data["conversion_rates"].get(to_currency)
-        if rate is None:
-            logging.error(f"Conversion rate for {to_currency} not found in response.")
-            return None
-        return rate
-    except Exception as e:
-        logging.error(f"Error fetching exchange rate: {str(e)}")
-        return None
-
-
-# Function to convert costs to Euro with error handling
-def convert_to_euro(df):
-    def safe_convert(row):
-        try:
-            if row["currency"] == "EUR":
-                return row["cost"]
-            else:
-                rate = get_exchange_rate(row["currency"], "EUR")
-                if rate is not None:
-                    return row["cost"] * rate
-                else:
-                    return None
-        except Exception as e:
-            logging.error(f"Failed to convert {row['currency']} to EUR: {str(e)}")
-            return None
-
-    df["cost_euro"] = df.apply(safe_convert, axis=1)
-    # Handle any rows where conversion failed by dropping or filling with 0
-    df = df.dropna(subset=["cost_euro"])
-    return df
-
-
 # Ensure the CSV file exists
-def ensure_csv_exists():
-    CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not CSV_PATH.exists():
-        pd.DataFrame(
-            columns=["category", "cost", "note", "date", "currency", "account"]
-        ).to_csv(CSV_PATH, index=False)
-
-
 ensure_csv_exists()
 
 # Initialize the ExpenseTracker
@@ -259,6 +30,7 @@ app = dash.Dash(
         "https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap"
     ],
 )
+
 
 # Layout of the app
 app.layout = html.Div(
@@ -687,7 +459,9 @@ app.layout = html.Div(
                                             "cost_euro",
                                         ]
                                     ],
-                                    data=load_expenses().to_dict("records"),
+                                    data=load_expenses(expense_tracker).to_dict(
+                                        "records"
+                                    ),
                                     style_table={
                                         "overflowX": "auto",
                                         "borderRadius": "8px",
@@ -709,7 +483,7 @@ app.layout = html.Div(
                                         "border": "1px solid " + colors["button"],
                                     },
                                     style_as_list_view=True,
-                                    page_size=10,  # Limit to 10 rows
+                                    page_size=10,
                                     sort_action="native",
                                     filter_action="native",
                                 ),
@@ -803,12 +577,10 @@ app.layout = html.Div(
     Input("toggle-button", "n_clicks"),
 )
 def toggle_light_dark_mode(n_clicks):
-    global colors  # Ensure we are using the global 'colors' variable
-
     if n_clicks is None or n_clicks % 2 == 0:
-        colors = light_mode_colors
-    else:
         colors = dark_mode_colors
+    else:
+        colors = light_mode_colors
 
     container_style = {
         "backgroundColor": colors["background"],
@@ -1216,7 +988,7 @@ def toggle_light_dark_mode(n_clicks):
                                         "cost_euro",
                                     ]
                                 ],
-                                data=load_expenses().to_dict("records"),
+                                data=load_expenses(expense_tracker).to_dict("records"),
                                 style_table={
                                     "overflowX": "auto",
                                     "borderRadius": "8px",
@@ -1238,7 +1010,7 @@ def toggle_light_dark_mode(n_clicks):
                                     "border": "1px solid " + colors["button"],
                                 },
                                 style_as_list_view=True,
-                                page_size=10,  # Limit to 10 rows
+                                page_size=10,
                                 sort_action="native",
                                 filter_action="native",
                             ),
@@ -1392,7 +1164,7 @@ def update_expenses(
             category, cost, note, formatted_date, currency, account
         )
 
-    df = load_expenses()
+    df = load_expenses(expense_tracker)
     df = convert_to_euro(df)
 
     if df.empty or not all(
@@ -1421,7 +1193,7 @@ def update_expenses(
                     "color": colors["button"],
                     "line": {"width": 0},  # No outline
                 },
-                "text": category_summary["cost_euro"],  # Add value labels
+                "text": category_summary["cost_euro"].apply(lambda x: f"{x:.2f}"),
                 "textposition": "outside",  # Position labels outside
             }
         ],
@@ -1450,6 +1222,8 @@ def update_expenses(
         for i, category in enumerate(monthly_summary["category"].unique())
     }
 
+    monthly_summary = monthly_summary.sort_values(by="month_year", ascending=False)
+
     monthly_figure = {
         "data": [
             {
@@ -1463,7 +1237,7 @@ def update_expenses(
                 "name": category,
                 "marker": {
                     "color": category_colors[category],
-                    "line": {"width": 0},  # No outline
+                    "line": {"width": 0},
                 },
             }
             for category in monthly_summary["category"].unique()
@@ -1494,7 +1268,8 @@ def update_expenses(
     if monthly_income is None:
         total_income = 0
     else:
-        total_income = monthly_income * df["month_year"].nunique()
+        monthly_income_euro = convert_income_to_euro(monthly_income, income_currency)
+        total_income = monthly_income_euro * df["month_year"].nunique()
 
     total_expenses = df["cost_euro"].sum()
     total_profit_loss = total_income - total_expenses
@@ -1548,7 +1323,3 @@ def update_expenses(
         income_update_message,
         "",
     )
-
-
-if __name__ == "__main__":
-    app.run_server(debug=True)

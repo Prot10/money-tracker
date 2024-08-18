@@ -7,9 +7,7 @@ from typing import List
 
 from pydantic import BaseModel, validator
 
-CSV_PATH = Path("data") / "expenses.csv"
-
-DATE_FORMAT = "%d-%m-%Y"
+from ..config import CSV_PATH, DATE_FORMAT
 
 
 class Expense(BaseModel):
@@ -99,12 +97,3 @@ class ExpenseTracker:
                 summary[expense.category] = 0
             summary[expense.category] += expense.cost
         return summary
-
-
-# Example usage:
-if __name__ == "__main__":
-    tracker = ExpenseTracker()
-    tracker.add_expense("Food", 15.99, "Lunch", "17-08-2024", "USD", "Credit Card")
-    tracker.add_expense("Transport", 2.50, "Bus fare", "17-08-2024", "USD", "Cash")
-    print(tracker.get_expenses())
-    print(tracker.get_summary_by_category())
