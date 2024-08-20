@@ -18,3 +18,12 @@ A web-based expense tracker built with Dash.
     ```
 
 ## Project Structure
+
+## TO DO
+
+[ ] Upload csv file (use an icon for the button)
+[ ] Download the modified csv file (use an icon for the button)
+[ ] Fix the light palette
+[ ] Fixed exchange rate if api call are finished (maybe find new unlimited api)
+[ ] New plots (?)
+[ ] Improve the readme
