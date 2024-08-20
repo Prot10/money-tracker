@@ -1,0 +1,4 @@
+app.eeg-info/*
+.DS_Store
+**/*__pycache__*/**
+*/*.txt

@@ -17,6 +17,7 @@ class Expense(BaseModel):
     date: str
     currency: str
     account: str
+    ALLOWED_COLUMNS = ["category", "cost", "note", "date", "currency", "account"]
 
     @validator("date")
     def validate_date(cls, v):
@@ -97,3 +98,21 @@ class ExpenseTracker:
                 summary[expense.category] = 0
             summary[expense.category] += expense.cost
         return summary
+
+    def check_csv_columns(self):
+        """Check if the CSV file has the required columns."""
+        if self.csv_file.exists():
+            with self.csv_file.open(mode="r", newline="") as file:
+                reader = csv.DictReader(file)
+                headers = reader.fieldnames
+
+                missing_columns = [
+                    col for col in Expense.ALLOWED_COLUMNS if col not in headers
+                ]
+                if missing_columns:
+                    raise ValueError(
+                        f"Missing columns in CSV: {', '.join(missing_columns)}"
+                    )
+                return True
+        else:
+            raise FileNotFoundError("CSV file does not exist.")

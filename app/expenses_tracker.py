@@ -1,12 +1,14 @@
 """Module to create the Dash app for the Expense Tracker."""
 
+import base64
 from datetime import datetime
 
 import dash
 import pandas as pd
-from dash import Input, Output, State, dash_table, dcc, html
+from dash import Input, Output, State, dcc, html
 
 from .config import color_palette, dark_mode_colors, light_mode_colors
+from .content import create_app_content
 from .data.tracker import ExpenseTracker
 from .utils import (
     convert_income_to_euro,
@@ -27,36 +29,64 @@ expense_tracker = ExpenseTracker()
 app = dash.Dash(
     __name__,
     external_stylesheets=[
-        "https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap"
+        "https://fonts.googleapis.com/css2?family=Nunito&display=swap",
+        "/assets/style.css",
+        "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css",
     ],
 )
 
+style = {
+    "backgroundColor": colors["background"],
+    "fontFamily": "'Nunito', cursive",
+    "margin": "0",
+    "padding": "0",
+    "minHeight": "100vh",
+    "position": "relative",
+}
+
+buttons_style = {
+    "position": "absolute",
+    "top": "10px",
+    "right": "10px",
+    "backgroundColor": colors["button"],
+    "color": colors["subtitle"],
+    "borderRadius": "5px",
+    "padding": "10px",
+    "fontSize": "15px",
+}
 
 # Layout of the app
 app.layout = html.Div(
     id="main-container",
-    style={
-        "backgroundColor": colors["background"],
-        "fontFamily": "'Indie Flower', cursive",
-        "margin": "0",
-        "padding": "0",
-        "minHeight": "100vh",
-        "position": "relative",
-    },
+    style=style,
     children=[
         html.Button(
             "Toggle Light/Dark Mode",
             id="toggle-button",
+            style=buttons_style,
+        ),
+        dcc.Upload(
+            id="upload-data",
+            children=html.Div(
+                [
+                    html.I(
+                        className="fas fa-upload",
+                        style={"fontSize": "24px", "marginRight": "10px"},
+                    ),
+                    "Upload CSV File",
+                ]
+            ),
             style={
-                "position": "absolute",
-                "top": "10px",
-                "right": "10px",
-                "backgroundColor": colors["button"],
-                "color": colors["subtitle"],
+                "width": "10%",
+                "height": "60px",
+                "lineHeight": "60px",
+                "borderWidth": "1px",
+                "borderStyle": "dashed",
                 "borderRadius": "5px",
-                "padding": "10px",
-                "fontSize": "15px",
+                "textAlign": "left",
+                "margin": "10px",
             },
+            multiple=True,
         ),
         html.H1(
             "The Expense Tracker",
@@ -69,502 +99,7 @@ app.layout = html.Div(
                 "marginTop": "5px",
             },
         ),
-        html.Div(
-            id="app-content",
-            children=[
-                html.Div(
-                    [
-                        html.Div(
-                            style={
-                                "display": "grid",
-                                "gridTemplateColumns": "1fr 1fr",
-                                "gap": "10px",
-                            },
-                            children=[
-                                html.Div(
-                                    children=[
-                                        html.H3(
-                                            "Add New Expense",
-                                            style={
-                                                "color": colors["subtitle"],
-                                                "textAlign": "center",
-                                                "fontSize": "30px",
-                                                "marginBottom": "5px",
-                                                "marginTop": "5px",
-                                            },
-                                        ),
-                                        html.Div(
-                                            [
-                                                html.Label(
-                                                    "Category",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.Input(
-                                                    id="input-category",
-                                                    type="text",
-                                                    value="",
-                                                    placeholder="e.g., Food",
-                                                    style={
-                                                        "width": "40%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                ),
-                                            ]
-                                        ),
-                                        html.Div(
-                                            [
-                                                html.Label(
-                                                    "Cost",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.Input(
-                                                    id="input-cost",
-                                                    type="number",
-                                                    value=None,
-                                                    placeholder="e.g., 20.5",
-                                                    style={
-                                                        "width": "40%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                ),
-                                            ]
-                                        ),
-                                        html.Div(
-                                            [
-                                                html.Label(
-                                                    "Note",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.Input(
-                                                    id="input-note",
-                                                    type="text",
-                                                    value="",
-                                                    placeholder="e.g., Lunch with friends (Optional)",
-                                                    style={
-                                                        "width": "60%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                ),
-                                            ]
-                                        ),
-                                        html.Div(
-                                            [
-                                                html.Label(
-                                                    "Date",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.DatePickerSingle(
-                                                    id="input-date",
-                                                    date=datetime.now().strftime(
-                                                        "%Y-%m-%d"
-                                                    ),
-                                                    display_format="DD-MM-YYYY",
-                                                    style={
-                                                        "width": "40%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                ),
-                                            ]
-                                        ),
-                                        html.Div(
-                                            [
-                                                html.Label(
-                                                    "Currency",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.Dropdown(
-                                                    id="input-currency",
-                                                    options=[
-                                                        {
-                                                            "label": "Euro (€)",
-                                                            "value": "EUR",
-                                                        },
-                                                        {
-                                                            "label": "US Dollar ($)",
-                                                            "value": "USD",
-                                                        },
-                                                        {
-                                                            "label": "British Pound (£)",
-                                                            "value": "GBP",
-                                                        },
-                                                        {
-                                                            "label": "Swiss Franc (CHF)",
-                                                            "value": "CHF",
-                                                        },
-                                                    ],
-                                                    value="EUR",
-                                                    style={
-                                                        "width": "50%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                    clearable=False,
-                                                ),
-                                            ]
-                                        ),
-                                        html.Div(
-                                            [
-                                                html.Label(
-                                                    "Account",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.Input(
-                                                    id="input-account",
-                                                    type="text",
-                                                    value="",
-                                                    placeholder="e.g., Credit Card",
-                                                    style={
-                                                        "width": "40%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                ),
-                                            ]
-                                        ),
-                                        html.Button(
-                                            "Add Expense",
-                                            id="add-expense-button",
-                                            n_clicks=0,
-                                            style={
-                                                "width": "40%",
-                                                "margin": "10px auto",
-                                                "backgroundColor": colors["button"],
-                                                "color": colors["text"],
-                                                "borderRadius": "5px",
-                                                "display": "block",
-                                                "fontSize": "15px",
-                                            },
-                                        ),
-                                        html.Div(
-                                            id="error-message",
-                                            style={
-                                                "color": colors["button"],
-                                                "marginTop": "10px",
-                                                "textAlign": "center",
-                                            },
-                                        ),
-                                    ],
-                                    style={
-                                        "gridColumn": "1 / 2",
-                                        "backgroundColor": colors["block"],
-                                        "padding": "20px",
-                                        "borderRadius": "8px",
-                                        "marginBottom": "20px",
-                                        "marginRight": "20px",
-                                    },
-                                ),
-                                html.Div(
-                                    children=[
-                                        html.Div(
-                                            [
-                                                html.H3(
-                                                    "Income setup",
-                                                    style={
-                                                        "color": colors["subtitle"],
-                                                        "textAlign": "center",
-                                                        "fontSize": "30px",
-                                                        "marginBottom": "5px",
-                                                        "marginTop": "5px",
-                                                    },
-                                                ),
-                                                html.Label(
-                                                    "Monthly Income",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.Input(
-                                                    id="input-monthly-income",
-                                                    type="number",
-                                                    value=None,
-                                                    placeholder="Set monthly income",
-                                                    style={
-                                                        "width": "40%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                ),
-                                                html.Label(
-                                                    "Currency",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "display": "block",
-                                                        "textAlign": "center",
-                                                        "fontStyle": "italic",
-                                                        "fontSize": "20px",
-                                                    },
-                                                ),
-                                                dcc.Dropdown(
-                                                    id="input-income-currency",
-                                                    options=[
-                                                        {
-                                                            "label": "Euro (€)",
-                                                            "value": "EUR",
-                                                        },
-                                                        {
-                                                            "label": "US Dollar ($)",
-                                                            "value": "USD",
-                                                        },
-                                                        {
-                                                            "label": "British Pound (£)",
-                                                            "value": "GBP",
-                                                        },
-                                                        {
-                                                            "label": "Swiss Franc (CHF)",
-                                                            "value": "CHF",
-                                                        },
-                                                    ],
-                                                    value="EUR",
-                                                    style={
-                                                        "width": "50%",
-                                                        "margin": "0 auto 10px auto",
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                    },
-                                                    clearable=False,
-                                                ),
-                                                html.Button(
-                                                    "Update Income",
-                                                    id="set-income-button",
-                                                    n_clicks=0,
-                                                    style={
-                                                        "width": "40%",
-                                                        "margin": "10px auto",
-                                                        "backgroundColor": colors[
-                                                            "button"
-                                                        ],
-                                                        "color": colors["text"],
-                                                        "borderRadius": "5px",
-                                                        "display": "block",
-                                                        "fontSize": "15px",
-                                                    },
-                                                ),
-                                                html.Div(
-                                                    id="income-update-message",
-                                                    style={
-                                                        "color": colors["text"],
-                                                        "textAlign": "center",
-                                                    },
-                                                ),
-                                            ],
-                                            style={
-                                                "marginBottom": "20px",
-                                                "backgroundColor": colors["block"],
-                                                "padding": "20px",
-                                                "borderRadius": "8px",
-                                            },
-                                        ),
-                                        html.Div(
-                                            [
-                                                html.H3(
-                                                    "Statistics",
-                                                    style={
-                                                        "color": colors["subtitle"],
-                                                        "textAlign": "center",
-                                                        "fontSize": "30px",
-                                                        "marginBottom": "5px",
-                                                        "marginTop": "5px",
-                                                    },
-                                                ),
-                                                html.Div(id="statistics-output"),
-                                            ],
-                                            style={
-                                                "marginBottom": "20px",
-                                                "backgroundColor": colors["block"],
-                                                "padding": "20px",
-                                                "borderRadius": "8px",
-                                            },
-                                        ),
-                                    ],
-                                    style={
-                                        "gridColumn": "2 / 3",
-                                    },
-                                ),
-                            ],
-                        ),
-                        html.Div(
-                            [
-                                html.H3(
-                                    "Expenses",
-                                    style={
-                                        "color": colors["subtitle"],
-                                        "textAlign": "center",
-                                        "fontSize": "30px",
-                                        "marginBottom": "5px",
-                                        "marginTop": "5px",
-                                    },
-                                ),
-                                dash_table.DataTable(
-                                    id="expenses-table",
-                                    columns=[
-                                        {"name": i, "id": i}
-                                        for i in [
-                                            "category",
-                                            "cost",
-                                            "note",
-                                            "date",
-                                            "currency",
-                                            "account",
-                                            "cost_euro",
-                                        ]
-                                    ],
-                                    data=load_expenses(expense_tracker).to_dict(
-                                        "records"
-                                    ),
-                                    style_table={
-                                        "overflowX": "auto",
-                                        "borderRadius": "8px",
-                                    },
-                                    style_header={
-                                        "backgroundColor": colors["button"],
-                                        "color": colors["text"],
-                                        "fontWeight": "bold",
-                                    },
-                                    style_cell={
-                                        "backgroundColor": colors["table_bg"],
-                                        "color": colors["text"],
-                                        "textAlign": "center",
-                                        "padding": "10px",
-                                    },
-                                    style_filter={
-                                        "backgroundColor": colors["text"],
-                                        "color": colors["text"],
-                                        "border": "1px solid " + colors["button"],
-                                    },
-                                    style_as_list_view=True,
-                                    page_size=10,
-                                    sort_action="native",
-                                    filter_action="native",
-                                ),
-                            ],
-                            style={
-                                "backgroundColor": colors["block"],
-                                "padding": "20px",
-                                "borderRadius": "8px",
-                            },
-                        ),
-                    ],
-                    style={
-                        "width": "48%",
-                        "display": "inline-block",
-                        "verticalAlign": "top",
-                        "padding": "20px",
-                    },
-                ),
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                html.H3(
-                                    "Expenses by Category",
-                                    style={
-                                        "color": colors["subtitle"],
-                                        "textAlign": "center",
-                                        "fontSize": "30px",
-                                        "marginBottom": "5px",
-                                        "marginTop": "5px",
-                                    },
-                                ),
-                                dcc.Graph(
-                                    id="category-summary",
-                                    style={"height": "440px", "borderRadius": "8px"},
-                                ),
-                            ],
-                            style={
-                                "backgroundColor": colors["block"],
-                                "padding": "20px",
-                                "borderRadius": "8px",
-                                "marginBottom": "20px",
-                            },
-                        ),
-                        html.Div(
-                            [
-                                html.H3(
-                                    "Monthly Expenses by Category",
-                                    style={
-                                        "color": colors["subtitle"],
-                                        "textAlign": "center",
-                                        "fontSize": "30px",
-                                        "marginBottom": "5px",
-                                        "marginTop": "5px",
-                                    },
-                                ),
-                                dcc.Graph(
-                                    id="monthly-summary",
-                                    style={"height": "478px", "borderRadius": "8px"},
-                                ),
-                            ],
-                            style={
-                                "backgroundColor": colors["block"],
-                                "padding": "20px",
-                                "borderRadius": "8px",
-                            },
-                        ),
-                    ],
-                    style={
-                        "width": "48%",
-                        "display": "inline-block",
-                        "verticalAlign": "top",
-                        "padding": "20px",
-                    },
-                ),
-            ],
-            style={
-                "display": "flex",
-                "justifyContent": "space-between",
-            },
-        ),
+        create_app_content(colors, expense_tracker),
     ],
 )
 
@@ -582,518 +117,41 @@ def toggle_light_dark_mode(n_clicks):
     else:
         colors = light_mode_colors
 
-    container_style = {
-        "backgroundColor": colors["background"],
-        "color": colors["text"],
-        "fontFamily": "'Indie Flower', cursive",
-        "minHeight": "100vh",
-        "position": "relative",
-    }
+    container_style = style
 
-    button_style = {
-        "position": "absolute",
-        "top": "10px",
-        "right": "10px",
-        "backgroundColor": colors["button"],
-        "color": colors["subtitle"],
-        "borderRadius": "5px",
-        "padding": "10px",
-        "fontSize": "15px",
-    }
+    button_style = buttons_style
 
-    app_content = html.Div(
-        children=[
-            html.Div(
-                [
-                    html.Div(
-                        style={
-                            "display": "grid",
-                            "gridTemplateColumns": "1fr 1fr",
-                            "gap": "10px",
-                        },
-                        children=[
-                            html.Div(
-                                children=[
-                                    html.H3(
-                                        "Add New Expense",
-                                        style={
-                                            "color": colors["subtitle"],
-                                            "textAlign": "center",
-                                            "fontSize": "30px",
-                                            "marginBottom": "5px",
-                                            "marginTop": "5px",
-                                        },
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Label(
-                                                "Category",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.Input(
-                                                id="input-category",
-                                                type="text",
-                                                value="",
-                                                placeholder="e.g., Food",
-                                                style={
-                                                    "width": "40%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                            ),
-                                        ]
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Label(
-                                                "Cost",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.Input(
-                                                id="input-cost",
-                                                type="number",
-                                                value=None,
-                                                placeholder="e.g., 20.5",
-                                                style={
-                                                    "width": "40%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                            ),
-                                        ]
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Label(
-                                                "Note",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.Input(
-                                                id="input-note",
-                                                type="text",
-                                                value="",
-                                                placeholder="e.g., Lunch with friends (Optional)",
-                                                style={
-                                                    "width": "60%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                            ),
-                                        ]
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Label(
-                                                "Date",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.DatePickerSingle(
-                                                id="input-date",
-                                                date=datetime.now().strftime(
-                                                    "%Y-%m-%d"
-                                                ),
-                                                display_format="DD-MM-YYYY",
-                                                style={
-                                                    "width": "40%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                            ),
-                                        ]
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Label(
-                                                "Currency",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.Dropdown(
-                                                id="input-currency",
-                                                options=[
-                                                    {
-                                                        "label": "Euro (€)",
-                                                        "value": "EUR",
-                                                    },
-                                                    {
-                                                        "label": "US Dollar ($)",
-                                                        "value": "USD",
-                                                    },
-                                                    {
-                                                        "label": "British Pound (£)",
-                                                        "value": "GBP",
-                                                    },
-                                                    {
-                                                        "label": "Swiss Franc (CHF)",
-                                                        "value": "CHF",
-                                                    },
-                                                ],
-                                                value="EUR",
-                                                style={
-                                                    "width": "50%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                                clearable=False,
-                                            ),
-                                        ]
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Label(
-                                                "Account",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.Input(
-                                                id="input-account",
-                                                type="text",
-                                                value="",
-                                                placeholder="e.g., Credit Card",
-                                                style={
-                                                    "width": "40%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                            ),
-                                        ]
-                                    ),
-                                    html.Button(
-                                        "Add Expense",
-                                        id="add-expense-button",
-                                        n_clicks=0,
-                                        style={
-                                            "width": "40%",
-                                            "margin": "10px auto",
-                                            "backgroundColor": colors["button"],
-                                            "color": colors["subtitle"],
-                                            "borderRadius": "5px",
-                                            "display": "block",
-                                            "fontSize": "15px",
-                                        },
-                                    ),
-                                    html.Div(
-                                        id="error-message",
-                                        style={
-                                            "color": colors["button"],
-                                            "marginTop": "10px",
-                                            "textAlign": "center",
-                                        },
-                                    ),
-                                ],
-                                style={
-                                    "gridColumn": "1 / 2",
-                                    "backgroundColor": colors["block"],
-                                    "padding": "20px",
-                                    "borderRadius": "8px",
-                                    "marginBottom": "20px",
-                                    "marginRight": "20px",
-                                },
-                            ),
-                            html.Div(
-                                children=[
-                                    html.Div(
-                                        [
-                                            html.H3(
-                                                "Income setup",
-                                                style={
-                                                    "color": colors["subtitle"],
-                                                    "textAlign": "center",
-                                                    "fontSize": "30px",
-                                                    "marginBottom": "5px",
-                                                    "marginTop": "5px",
-                                                },
-                                            ),
-                                            html.Label(
-                                                "Monthly Income",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.Input(
-                                                id="input-monthly-income",
-                                                type="number",
-                                                value=None,
-                                                placeholder="Set monthly income",
-                                                style={
-                                                    "width": "40%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                            ),
-                                            html.Label(
-                                                "Currency",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "display": "block",
-                                                    "textAlign": "center",
-                                                    "fontStyle": "italic",
-                                                    "fontSize": "20px",
-                                                },
-                                            ),
-                                            dcc.Dropdown(
-                                                id="input-income-currency",
-                                                options=[
-                                                    {
-                                                        "label": "Euro (€)",
-                                                        "value": "EUR",
-                                                    },
-                                                    {
-                                                        "label": "US Dollar ($)",
-                                                        "value": "USD",
-                                                    },
-                                                    {
-                                                        "label": "British Pound (£)",
-                                                        "value": "GBP",
-                                                    },
-                                                    {
-                                                        "label": "Swiss Franc (CHF)",
-                                                        "value": "CHF",
-                                                    },
-                                                ],
-                                                value="EUR",
-                                                style={
-                                                    "width": "50%",
-                                                    "margin": "0 auto 10px auto",
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                },
-                                                clearable=False,
-                                            ),
-                                            html.Button(
-                                                "Update Income",
-                                                id="set-income-button",
-                                                n_clicks=0,
-                                                style={
-                                                    "width": "40%",
-                                                    "margin": "10px auto",
-                                                    "backgroundColor": colors["button"],
-                                                    "color": colors["text"],
-                                                    "borderRadius": "5px",
-                                                    "display": "block",
-                                                    "fontSize": "15px",
-                                                },
-                                            ),
-                                            html.Div(
-                                                id="income-update-message",
-                                                style={
-                                                    "color": colors["text"],
-                                                    "textAlign": "center",
-                                                },
-                                            ),
-                                        ],
-                                        style={
-                                            "marginBottom": "20px",
-                                            "backgroundColor": colors["block"],
-                                            "padding": "20px",
-                                            "borderRadius": "8px",
-                                        },
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.H3(
-                                                "Statistics",
-                                                style={
-                                                    "color": colors["subtitle"],
-                                                    "textAlign": "center",
-                                                    "fontSize": "30px",
-                                                    "marginBottom": "5px",
-                                                    "marginTop": "5px",
-                                                },
-                                            ),
-                                            html.Div(id="statistics-output"),
-                                        ],
-                                        style={
-                                            "marginBottom": "20px",
-                                            "backgroundColor": colors["block"],
-                                            "padding": "20px",
-                                            "borderRadius": "8px",
-                                        },
-                                    ),
-                                ],
-                                style={
-                                    "gridColumn": "2 / 3",
-                                },
-                            ),
-                        ],
-                    ),
-                    html.Div(
-                        [
-                            html.H3(
-                                "Expenses",
-                                style={
-                                    "color": colors["subtitle"],
-                                    "textAlign": "center",
-                                    "fontSize": "30px",
-                                    "marginBottom": "5px",
-                                    "marginTop": "5px",
-                                },
-                            ),
-                            dash_table.DataTable(
-                                id="expenses-table",
-                                columns=[
-                                    {"name": i, "id": i}
-                                    for i in [
-                                        "category",
-                                        "cost",
-                                        "note",
-                                        "date",
-                                        "currency",
-                                        "account",
-                                        "cost_euro",
-                                    ]
-                                ],
-                                data=load_expenses(expense_tracker).to_dict("records"),
-                                style_table={
-                                    "overflowX": "auto",
-                                    "borderRadius": "8px",
-                                },
-                                style_header={
-                                    "backgroundColor": colors["button"],
-                                    "color": colors["text"],
-                                    "fontWeight": "bold",
-                                },
-                                style_cell={
-                                    "backgroundColor": colors["table_bg"],
-                                    "color": colors["text"],
-                                    "textAlign": "center",
-                                    "padding": "10px",
-                                },
-                                style_filter={
-                                    "backgroundColor": colors["text"],
-                                    "color": colors["text"],
-                                    "border": "1px solid " + colors["button"],
-                                },
-                                style_as_list_view=True,
-                                page_size=10,
-                                sort_action="native",
-                                filter_action="native",
-                            ),
-                        ],
-                        style={
-                            "backgroundColor": colors["block"],
-                            "padding": "20px",
-                            "borderRadius": "8px",
-                        },
-                    ),
-                ],
-                style={
-                    "width": "48%",
-                    "display": "inline-block",
-                    "verticalAlign": "top",
-                    "padding": "20px",
-                },
-            ),
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            html.H3(
-                                "Expenses by Category",
-                                style={
-                                    "color": colors["subtitle"],
-                                    "textAlign": "center",
-                                    "fontSize": "30px",
-                                    "marginBottom": "5px",
-                                    "marginTop": "5px",
-                                },
-                            ),
-                            dcc.Graph(
-                                id="category-summary",
-                                style={"height": "440px", "borderRadius": "8px"},
-                            ),
-                        ],
-                        style={
-                            "backgroundColor": colors["block"],
-                            "padding": "20px",
-                            "borderRadius": "8px",
-                            "marginBottom": "20px",
-                        },
-                    ),
-                    html.Div(
-                        [
-                            html.H3(
-                                "Monthly Expenses by Category",
-                                style={
-                                    "color": colors["subtitle"],
-                                    "textAlign": "center",
-                                    "fontSize": "30px",
-                                    "marginBottom": "5px",
-                                    "marginTop": "5px",
-                                },
-                            ),
-                            dcc.Graph(
-                                id="monthly-summary",
-                                style={"height": "478px", "borderRadius": "8px"},
-                            ),
-                        ],
-                        style={
-                            "backgroundColor": colors["block"],
-                            "padding": "20px",
-                            "borderRadius": "8px",
-                        },
-                    ),
-                ],
-                style={
-                    "width": "48%",
-                    "display": "inline-block",
-                    "verticalAlign": "top",
-                    "padding": "20px",
-                },
-            ),
-        ],
-        style={
-            "display": "flex",
-            "justifyContent": "space-between",
-        },
-    )
+    app_content = (create_app_content(colors, expense_tracker),)
 
     return container_style, button_style, app_content
+
+
+@app.callback(
+    # Output("output-data-upload", "children"),
+    Input("upload-data", "contents"),
+    State("upload-data", "filename"),
+    State("upload-data", "last_modified"),
+)
+def update_output(list_of_contents, list_of_names, list_of_dates):
+    if list_of_contents is not None:
+        for content, name in zip(list_of_contents, list_of_names):
+            # Save the uploaded content to a temporary file
+            content_type, content_string = content.split(",")
+            decoded = base64.b64decode(content_string)
+            with open(name, "wb") as f:
+                f.write(decoded)
+
+            # Create an instance of ExpenseTracker with the uploaded file
+            tracker = ExpenseTracker(name)
+
+            # Check the CSV columns
+            try:
+                tracker.check_csv_columns()
+                # Load expenses if the check is successful
+                tracker._load_expenses()
+                return f"Successfully loaded {name} with required columns."
+            except ValueError as e:
+                return str(e)
 
 
 @app.callback(
@@ -1289,18 +347,34 @@ def update_expenses(
 
     statistics_output = html.Table(
         children=[
-            html.Tr([html.Td("Total Income:"), html.Td(f"{total_income:.2f} €")]),
-            html.Tr([html.Td("Total Expenses:"), html.Td(f"{total_expenses:.2f} €")]),
             html.Tr(
-                [html.Td("Total Profit/Loss:"), html.Td(f"{total_profit_loss:.2f} €")]
-            ),
-            html.Tr(
-                [html.Td("Mean Monthly Expenses:"), html.Td(f"{mean_expenses:.2f} €")]
+                [
+                    html.Td("Total Income:", style={"padding": "10px"}),
+                    html.Td(f"{total_income:.2f} €", style={"padding": "10px"}),
+                ]
             ),
             html.Tr(
                 [
-                    html.Td("Mean Monthly Profit/Loss:"),
-                    html.Td(f"{mean_profit_loss:.2f} €"),
+                    html.Td("Total Expenses:", style={"padding": "10px"}),
+                    html.Td(f"{total_expenses:.2f} €", style={"padding": "10px"}),
+                ]
+            ),
+            html.Tr(
+                [
+                    html.Td("Total Profit/Loss:", style={"padding": "10px"}),
+                    html.Td(f"{total_profit_loss:.2f} €", style={"padding": "10px"}),
+                ]
+            ),
+            html.Tr(
+                [
+                    html.Td("Mean Monthly Expenses:", style={"padding": "10px"}),
+                    html.Td(f"{mean_expenses:.2f} €", style={"padding": "10px"}),
+                ]
+            ),
+            html.Tr(
+                [
+                    html.Td("Mean Monthly Profit/Loss:", style={"padding": "10px"}),
+                    html.Td(f"{mean_profit_loss:.2f} €", style={"padding": "10px"}),
                 ]
             ),
         ],
@@ -1310,7 +384,7 @@ def update_expenses(
             "color": colors["text"],
             "textAlign": "left",
             "borderCollapse": "collapse",
-            "fontSize": "20px",
+            "fontSize": "15px",
         },
         className="statistics-table",
     )
