@@ -8,9 +8,11 @@ import requests
 from .config import BASE_URL, CSV_PATH
 from .data.tracker import ExpenseTracker
 
+DEFAULT_RATES = {"EUR": 1.0, "USD": 0.8958, "GBP": 0.8465, "CHF": 0.9460}
 
-def get_exchange_rate(from_currency: str, to_currency: str = "EUR") -> float | None:
-    """Fetch the exchange rate from one currency to another."""
+
+def get_exchange_rate(from_currency: str, to_currency: str = "EUR") -> float:
+    """Fetch the exchange rate from one currency to another, using default rates if necessary."""
     try:
         url = f"{BASE_URL}{from_currency}"
         response = requests.get(url)
@@ -20,16 +22,21 @@ def get_exchange_rate(from_currency: str, to_currency: str = "EUR") -> float | N
             logging.error(
                 f"Failed to fetch exchange rate: {data.get('error-type', 'Unknown error')}"
             )
-            return None
+            return DEFAULT_RATES.get(
+                to_currency, 1.0
+            )  # Return default rate if API fails
 
         rate = data["conversion_rates"].get(to_currency)
         if rate is None:
             logging.error(f"Conversion rate for {to_currency} not found in response.")
-            return None
+            return DEFAULT_RATES.get(
+                to_currency, 1.0
+            )  # Return default rate if conversion rate not found
+
         return rate
     except Exception as e:
         logging.error(f"Error fetching exchange rate: {str(e)}")
-        return None
+        return DEFAULT_RATES.get(to_currency, 1.0)  # Return default rate on exception
 
 
 def convert_to_euro(df: pd.DataFrame) -> pd.DataFrame:

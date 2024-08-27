@@ -1,6 +1,5 @@
 """Module to create the Dash app for the Expense Tracker."""
 
-import base64
 from datetime import datetime
 
 import dash
@@ -126,32 +125,32 @@ def toggle_light_dark_mode(n_clicks):
     return container_style, button_style, app_content
 
 
-@app.callback(
-    # Output("output-data-upload", "children"),
-    Input("upload-data", "contents"),
-    State("upload-data", "filename"),
-    State("upload-data", "last_modified"),
-)
-def update_output(list_of_contents, list_of_names, list_of_dates):
-    if list_of_contents is not None:
-        for content, name in zip(list_of_contents, list_of_names):
-            # Save the uploaded content to a temporary file
-            content_type, content_string = content.split(",")
-            decoded = base64.b64decode(content_string)
-            with open(name, "wb") as f:
-                f.write(decoded)
+# @app.callback(
+#     # Output("output-data-upload", "children"),
+#     Input("upload-data", "contents"),
+#     State("upload-data", "filename"),
+#     State("upload-data", "last_modified"),
+# )
+# def update_output(list_of_contents, list_of_names, list_of_dates):
+#     if list_of_contents is not None:
+#         for content, name in zip(list_of_contents, list_of_names):
+#             # Save the uploaded content to a temporary file
+#             content_type, content_string = content.split(",")
+#             decoded = base64.b64decode(content_string)
+#             with open(name, "wb") as f:
+#                 f.write(decoded)
 
-            # Create an instance of ExpenseTracker with the uploaded file
-            tracker = ExpenseTracker(name)
+#             # Create an instance of ExpenseTracker with the uploaded file
+#             tracker = ExpenseTracker(name)
 
-            # Check the CSV columns
-            try:
-                tracker.check_csv_columns()
-                # Load expenses if the check is successful
-                tracker._load_expenses()
-                return f"Successfully loaded {name} with required columns."
-            except ValueError as e:
-                return str(e)
+#             # Check the CSV columns
+#             try:
+#                 tracker.check_csv_columns()
+#                 # Load expenses if the check is successful
+#                 tracker._load_expenses()
+#                 return f"Successfully loaded {name} with required columns."
+#             except ValueError as e:
+#                 return str(e)
 
 
 @app.callback(
